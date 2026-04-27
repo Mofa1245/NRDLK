@@ -1,0 +1,19 @@
+{
+  "BUSINESS_NAME": "Al Rayyan Salon",
+  "BUSINESS_TYPE": "Salon & Spa",
+  "BUSINESS_LANGUAGE_MODE": "bilingual",
+  "BUSINESS_HOURS": "Sat–Thu 9:00–21:00, Fri 14:00–22:00",
+  "SERVICES_OR_MENU": "Haircut, Styling, Manicure, Pedicure, Massage, Facial. Kids under 12 half price.",
+  "BOOKING_RULES": "Appointments by phone or WhatsApp. No deposit. Cancel at least 2 hours ahead.",
+  "LOCATION_AREA": "Al Rayyan, near Mall of Qatar",
+  "WHATSAPP_CONFIRMATION_REQUIRED": true,
+  "MAX_BOOKING_DAYS_AHEAD": 14,
+  "menu_items": [
+    { "id": "haircut", "name": "Haircut", "synonyms": ["قص شعر", "hair cut"] },
+    { "id": "styling", "name": "Styling", "synonyms": ["تسريح", "style"] },
+    { "id": "manicure", "name": "Manicure", "synonyms": ["مانيكير"] },
+    { "id": "pedicure", "name": "Pedicure", "synonyms": ["باديكير"] },
+    { "id": "massage", "name": "Massage", "synonyms": ["مساج", "تدليك"] },
+    { "id": "facial", "name": "Facial", "synonyms": ["فيسيال", "عناية بالبشرة"] }
+  ]
+}
