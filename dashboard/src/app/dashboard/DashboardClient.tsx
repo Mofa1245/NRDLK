@@ -120,6 +120,10 @@ export function DashboardClient({
     );
   }
 
+  const serviceActive = business.status === 'active';
+  const planLabel = business.plan === 'premium' ? 'Premium' : 'Basic';
+  const usagePercent = Math.round((business.usage_minutes / Math.max(1, business.monthly_limit_minutes)) * 100);
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -165,49 +169,84 @@ export function DashboardClient({
         </p>
       </section>
 
-      <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-medium text-stone-700">Operations Settings</h2>
-        <div className="mt-3 space-y-3">
+      <section className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <label className="block text-xs text-stone-500">Working hours</label>
+            <h2 className="text-base font-semibold text-stone-900">Operations Center</h2>
+            <p className="mt-1 text-sm text-stone-500">Control service status, AI behavior, and business policy.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${serviceActive ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+              Service: {serviceActive ? 'Active' : 'Paused'}
+            </span>
+            <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-medium text-indigo-800">Plan: {planLabel}</span>
+            <span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-700">Usage: {usagePercent}%</span>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="rounded-lg border border-stone-200 p-4">
+            <h3 className="text-sm font-medium text-stone-800">Reception Behavior</h3>
+            <p className="mt-1 text-xs text-stone-500">Define operating window and whether AI answers new calls.</p>
+
+            <label className="mt-3 block text-xs font-medium text-stone-600">Working hours</label>
             <input
               type="text"
               value={hours}
               onChange={(e) => setHours(e.target.value)}
-              placeholder="e.g. Sat–Thu 9:00–21:00"
-              className="mt-1 w-full rounded border border-stone-300 px-3 py-2 text-sm"
+              placeholder="Example: Sat-Thu 09:00-21:00"
+              className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 text-sm"
             />
-          </div>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={aiEnabled}
-              onChange={(e) => setAiEnabled(e.target.checked)}
-            />
-            <span className="text-sm">AI receptionist on</span>
-          </label>
-          <button
-            onClick={saveSettings}
-            disabled={saving}
-            className="rounded bg-stone-800 px-3 py-1.5 text-sm text-white disabled:opacity-60"
-          >
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-          {opMessage ? <p className="text-xs text-stone-600">{opMessage}</p> : null}
-          <div className="flex flex-wrap gap-2">
-            <button onClick={() => patchBusiness('status', { status: 'active' })} className="rounded border px-2 py-1 text-xs">Enable Service</button>
-            <button onClick={() => patchBusiness('status', { status: 'paused' })} className="rounded border px-2 py-1 text-xs">Pause Service</button>
-            <button onClick={() => patchBusiness('plan', { plan: 'basic' })} className="rounded border px-2 py-1 text-xs">Set Plan: Basic</button>
-            <button onClick={() => patchBusiness('plan', { plan: 'premium' })} className="rounded border px-2 py-1 text-xs">Set Plan: Premium</button>
-            <button onClick={() => patchBusiness('reset-usage', {})} className="rounded border px-2 py-1 text-xs">Reset Monthly Usage</button>
-            <button onClick={() => patchBusiness('realtime-toggle', { enabled: !aiEnabled })} className="rounded border px-2 py-1 text-xs">
-              {aiEnabled ? 'Turn AI Off' : 'Turn AI On'}
+
+            <label className="mt-3 flex items-center gap-2 rounded-md border border-stone-200 bg-stone-50 px-3 py-2">
+              <input
+                type="checkbox"
+                checked={aiEnabled}
+                onChange={(e) => setAiEnabled(e.target.checked)}
+              />
+              <span className="text-sm text-stone-700">AI receptionist enabled</span>
+            </label>
+
+            <button
+              onClick={saveSettings}
+              disabled={saving}
+              className="mt-3 rounded-md bg-stone-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+            >
+              {saving ? 'Saving changes...' : 'Save configuration'}
             </button>
           </div>
-          <p className="text-xs text-stone-500">
-            Service: {business.status} | Plan: {business.plan} | Usage: {business.usage_minutes}/{business.monthly_limit_minutes} minutes
-          </p>
+
+          <div className="rounded-lg border border-stone-200 p-4">
+            <h3 className="text-sm font-medium text-stone-800">Administrative Actions</h3>
+            <p className="mt-1 text-xs text-stone-500">Use these controls for service lifecycle, billing tier, and counters.</p>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button onClick={() => patchBusiness('status', { status: 'active' })} className="rounded-md border px-3 py-1.5 text-xs font-medium">
+                Activate service
+              </button>
+              <button onClick={() => patchBusiness('status', { status: 'paused' })} className="rounded-md border px-3 py-1.5 text-xs font-medium">
+                Pause service
+              </button>
+              <button onClick={() => patchBusiness('realtime-toggle', { enabled: !aiEnabled })} className="rounded-md border px-3 py-1.5 text-xs font-medium">
+                {aiEnabled ? 'Disable AI receptionist' : 'Enable AI receptionist'}
+              </button>
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button onClick={() => patchBusiness('plan', { plan: 'basic' })} className="rounded-md border px-3 py-1.5 text-xs font-medium">
+                Switch to Basic
+              </button>
+              <button onClick={() => patchBusiness('plan', { plan: 'premium' })} className="rounded-md border px-3 py-1.5 text-xs font-medium">
+                Switch to Premium
+              </button>
+              <button onClick={() => patchBusiness('reset-usage', {})} className="rounded-md border px-3 py-1.5 text-xs font-medium">
+                Reset monthly usage
+              </button>
+            </div>
+          </div>
         </div>
+
+        {opMessage ? <p className="mt-3 text-xs text-stone-600">{opMessage}</p> : null}
       </section>
 
       <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
