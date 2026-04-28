@@ -79,6 +79,9 @@ app.use('/twilio', whatsappWebhook);
 app.use('/api', apiHealth);
 app.use('/api', apiBusiness);
 app.use('/api', apiBookings);
+app.get('/', (_req, res) => {
+  res.status(200).send('OK');
+});
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
