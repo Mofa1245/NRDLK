@@ -44,12 +44,16 @@ export default async function DashboardBookingsPage() {
 
   let bookings: Booking[] = [];
   if (businessIdText) {
-    const base = process.env.NEXT_PUBLIC_API_URL?.trim() || 'http://localhost:3000';
-    const url = `${base}/api/bookings?business_id=${encodeURIComponent(businessIdText)}`;
-    const res = await fetch(url, { cache: 'no-store' });
-    if (res.ok) {
-      const json = (await res.json()) as { bookings?: Booking[] };
-      bookings = (json.bookings || []) as Booking[];
+    try {
+      const base = process.env.NEXT_PUBLIC_API_URL?.trim() || process.env.NEXT_PUBLIC_BACKEND_URL?.trim() || 'http://localhost:3000';
+      const url = `${base}/api/bookings?business_id=${encodeURIComponent(businessIdText)}`;
+      const res = await fetch(url, { cache: 'no-store' });
+      if (res.ok) {
+        const json = (await res.json()) as { bookings?: Booking[] };
+        bookings = (json.bookings || []) as Booking[];
+      }
+    } catch (error) {
+      console.error('[BOOKINGS_LOAD_FAILED]', error);
     }
   }
 
