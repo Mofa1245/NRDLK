@@ -394,13 +394,14 @@ server.on('upgrade', (req, socket, head) => {
   }
 });
 
-const port = process.env.PORT ?? 3000;
+const PORT = Number(process.env.PORT || 3000);
 setInterval(() => {
   void getSessionsCount();
 }, 60000);
 
 try {
-  server.listen(port, () => {
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`[SERVER] listening on ${PORT}`);
     console.log('[ENGINE VERSION]', ENGINE_VERSION);
     if (process.env.DEMO_MODE === '1') {
       console.log('[DEMO MODE] limits/billing/rate-blocking bypassed');
