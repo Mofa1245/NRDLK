@@ -97,7 +97,8 @@ export function BookingsClient({
         setLastUpdatedAt(nowTs);
         setSecondsSinceUpdate(0);
       } catch {
-        if (!cancelled) setInlineError('Could not update booking');
+        // Background polling can fail transiently (cold start/network hiccup).
+        // Keep current data without showing a misleading update error.
       } finally {
         if (!cancelled) setRefreshing(false);
       }
