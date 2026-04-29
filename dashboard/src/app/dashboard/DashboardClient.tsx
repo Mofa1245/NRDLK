@@ -32,8 +32,8 @@ type Call = {
 export function DashboardClient({
   userEmail,
   business,
-  usageLogs,
-  messages,
+  usageLogs: _usageLogs,
+  messages: _messages,
   todayCalls,
 }: {
   userEmail: string;
@@ -117,14 +117,18 @@ export function DashboardClient({
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-stone-200 bg-white px-5 py-4 shadow-sm">
+      <div className="relative overflow-hidden rounded-2xl border border-stone-200 bg-gradient-to-br from-stone-900 via-stone-900 to-stone-700 px-5 py-5 text-stone-100 shadow-lg">
+        <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-amber-300/20 blur-3xl" />
+        <div className="relative flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-stone-800">{business.name}</h1>
-          <p className="text-sm text-stone-500">{userEmail}</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-stone-300">Business Dashboard</p>
+          <h1 className="mt-1 text-2xl font-semibold text-white">{business.name}</h1>
+          <p className="text-sm text-stone-300">{userEmail}</p>
         </div>
-        <button onClick={signOut} className="rounded-md border border-stone-300 px-3 py-1.5 text-sm text-stone-600 hover:bg-stone-100">
+        <button onClick={signOut} className="rounded-md border border-stone-500 px-3 py-1.5 text-sm text-stone-100 hover:bg-stone-700">
           Sign out
         </button>
+      </div>
       </div>
 
       <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
@@ -253,22 +257,6 @@ export function DashboardClient({
             ))
           )}
         </ul>
-      </section>
-
-      <section className="hidden rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-medium text-stone-700">Usage logs</h2>
-        <p className="mt-1 text-xs text-stone-500">{usageLogs.length} usage entries</p>
-        <pre className="mt-3 max-h-56 overflow-auto rounded border border-stone-100 bg-stone-50 p-2 text-xs">
-          {JSON.stringify(usageLogs, null, 2)}
-        </pre>
-      </section>
-
-      <section className="hidden rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-medium text-stone-700">Messages</h2>
-        <p className="mt-1 text-xs text-stone-500">{messages.length} messages</p>
-        <pre className="mt-3 max-h-56 overflow-auto rounded border border-stone-100 bg-stone-50 p-2 text-xs">
-          {JSON.stringify(messages, null, 2)}
-        </pre>
       </section>
 
       <section>

@@ -213,48 +213,54 @@ export function BookingsClient({
   });
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
+    <main className="mx-auto max-w-6xl px-4 py-8">
+      <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Bookings</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="text-xs uppercase tracking-[0.2em] text-stone-500">Operations Queue</p>
+          <h1 className="text-2xl font-semibold text-stone-900">Bookings</h1>
+          <p className="mt-1 text-sm text-stone-500">
             Last updated: {secondsSinceUpdate}s ago {refreshing ? '• Refreshing…' : ''}
           </p>
         </div>
-        <div className="flex gap-2 text-xs">
-          <button onClick={() => setWindowFilter('today')} className="rounded border px-2 py-1">Today</button>
-          <button onClick={() => setWindowFilter('upcoming')} className="rounded border px-2 py-1">Upcoming</button>
-          <button onClick={() => setWindowFilter('all')} className="rounded border px-2 py-1">All</button>
-          <button onClick={() => setSortBy(sortBy === 'newest' ? 'time' : 'newest')} className="rounded border px-2 py-1">
+        <div className="flex flex-wrap gap-2 text-xs">
+          <button onClick={() => setWindowFilter('today')} className="rounded-md border border-stone-300 bg-white px-3 py-1.5 hover:bg-stone-50">Today</button>
+          <button onClick={() => setWindowFilter('upcoming')} className="rounded-md border border-stone-300 bg-white px-3 py-1.5 hover:bg-stone-50">Upcoming</button>
+          <button onClick={() => setWindowFilter('all')} className="rounded-md border border-stone-300 bg-white px-3 py-1.5 hover:bg-stone-50">All</button>
+          <button onClick={() => setSortBy(sortBy === 'newest' ? 'time' : 'newest')} className="rounded-md border border-stone-300 bg-white px-3 py-1.5 hover:bg-stone-50">
             Sort: {sortBy === 'newest' ? 'Newest' : 'Time'}
           </button>
         </div>
       </div>
       {inlineError ? <p className="mt-2 text-xs text-red-600">Could not update booking</p> : null}
-      <div className="mt-4 flex flex-wrap gap-2 text-xs">
+      <div className="mt-4 grid gap-2 md:grid-cols-3">
         <button
           onClick={() => setQueue('needs_action')}
-          className={`rounded border px-3 py-1 ${queue === 'needs_action' ? 'bg-slate-900 text-white' : ''}`}
+          className={`rounded-lg border px-3 py-2 text-left text-sm ${queue === 'needs_action' ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-300 bg-white text-stone-700'}`}
         >
-          Needs Action ({needsAction.length})
+          Needs Action
+          <span className="ml-2 text-xs opacity-80">({needsAction.length})</span>
         </button>
         <button
           onClick={() => setQueue('in_progress')}
-          className={`rounded border px-3 py-1 ${queue === 'in_progress' ? 'bg-slate-900 text-white' : ''}`}
+          className={`rounded-lg border px-3 py-2 text-left text-sm ${queue === 'in_progress' ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-300 bg-white text-stone-700'}`}
         >
-          In Progress ({inProgress.length})
+          In Progress
+          <span className="ml-2 text-xs opacity-80">({inProgress.length})</span>
         </button>
         <button
           onClick={() => setQueue('closed')}
-          className={`rounded border px-3 py-1 ${queue === 'closed' ? 'bg-slate-900 text-white' : ''}`}
+          className={`rounded-lg border px-3 py-2 text-left text-sm ${queue === 'closed' ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-300 bg-white text-stone-700'}`}
         >
-          Closed ({closed.length})
+          Closed
+          <span className="ml-2 text-xs opacity-80">({closed.length})</span>
         </button>
+      </div>
       </div>
 
       <div className="mt-6 space-y-3">
         {renderedQueueItems.length === 0 ? (
-          <div className="rounded-lg border border-dashed p-6 text-sm text-slate-500">
+          <div className="rounded-xl border border-dashed border-stone-300 bg-white p-6 text-sm text-stone-500 shadow-sm">
             No bookings yet.
             <br />
             Incoming calls will appear here.
@@ -266,7 +272,7 @@ export function BookingsClient({
               count={renderedQueueItems.length}
             />
             {renderedQueueItems.map((b) => (
-              <div key={b.id} className="rounded-lg border bg-white p-4 shadow-sm">
+              <div key={b.id} className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
                 <CardBody
                   b={b}
                   busyId={busyId}
@@ -293,8 +299,8 @@ export function BookingsClient({
 function Section({ title, count }: { title: string; count: number }) {
   return (
     <div className="mt-4 flex items-center justify-between">
-      <h2 className="text-sm font-medium text-slate-700">{title}</h2>
-      <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{count}</span>
+      <h2 className="text-sm font-medium text-stone-700">{title}</h2>
+      <span className="rounded bg-stone-100 px-2 py-0.5 text-xs text-stone-600">{count}</span>
     </div>
   );
 }
@@ -331,11 +337,11 @@ function CardBody({
     <>
       <div
         className={`rounded-lg border p-4 shadow-sm transition-colors ${
-          isUrgent ? 'border-red-200 bg-red-50/40' : isFlashing(b.id) ? 'border-blue-200 bg-blue-50/40' : 'border-slate-200 bg-white'
+          isUrgent ? 'border-red-200 bg-red-50/40' : isFlashing(b.id) ? 'border-blue-200 bg-blue-50/40' : 'border-stone-200 bg-white'
         }`}
       >
         <div className="flex items-start justify-between gap-3">
-          <div className="text-base text-slate-800">
+          <div className="text-base text-stone-800">
             👤 {b.party_size ?? '—'} people &nbsp;|&nbsp; 🕒 {b.booking_time || '—'} &nbsp;|&nbsp; 📅 {dateLabel(b.booking_date)}
           </div>
           <div className="flex flex-wrap justify-end gap-2 text-xs">
@@ -349,49 +355,49 @@ function CardBody({
               <span className="rounded-full bg-amber-100 px-2 py-1 font-medium text-amber-800">Corrected</span>
             ) : null}
             {b.updated_by_staff ? (
-              <span className="rounded-full bg-slate-100 px-2 py-1 font-medium text-slate-700">Updated by staff</span>
+              <span className="rounded-full bg-stone-100 px-2 py-1 font-medium text-stone-700">Updated by staff</span>
             ) : null}
           </div>
         </div>
-        <div className="mt-2 text-sm text-slate-700">📞 {b.customer_phone}</div>
-        <div className="mt-2 text-sm text-slate-700">
+        <div className="mt-2 text-sm text-stone-700">📞 {b.customer_phone}</div>
+        <div className="mt-2 text-sm text-stone-700">
           📝 {truncate((b.special_request || '').trim() || (isUrgent ? 'Customer requested human support' : '—'))}
         </div>
         {isUrgent ? (
           <div className="mt-2 text-xs font-medium text-red-700">Customer requested human support</div>
         ) : null}
         {b.details_text ? (
-          <div className="mt-2 text-sm text-slate-600">Details: {truncate(b.details_text, 180)}</div>
+          <div className="mt-2 text-sm text-stone-600">Details: {truncate(b.details_text, 180)}</div>
         ) : null}
         {editingId === b.id ? (
-                <div className="mt-3 grid gap-2 rounded border bg-slate-50 p-3 text-xs sm:grid-cols-2">
+                <div className="mt-3 grid gap-2 rounded border border-stone-200 bg-stone-50 p-3 text-xs sm:grid-cols-2">
                   <label className="flex flex-col gap-1">
-                    <span className="text-slate-500">Date (YYYY-MM-DD)</span>
-                    <input value={editForm.booking_date} onChange={(e) => setEditForm((p) => ({ ...p, booking_date: e.target.value }))} className="rounded border px-2 py-1" />
+                    <span className="text-stone-500">Date (YYYY-MM-DD)</span>
+                    <input value={editForm.booking_date} onChange={(e) => setEditForm((p) => ({ ...p, booking_date: e.target.value }))} className="rounded border border-stone-300 px-2 py-1" />
                   </label>
                   <label className="flex flex-col gap-1">
-                    <span className="text-slate-500">Time</span>
-                    <input value={editForm.booking_time} onChange={(e) => setEditForm((p) => ({ ...p, booking_time: e.target.value }))} className="rounded border px-2 py-1" />
+                    <span className="text-stone-500">Time</span>
+                    <input value={editForm.booking_time} onChange={(e) => setEditForm((p) => ({ ...p, booking_time: e.target.value }))} className="rounded border border-stone-300 px-2 py-1" />
                   </label>
                   <label className="flex flex-col gap-1">
-                    <span className="text-slate-500">Party size</span>
-                    <input value={editForm.party_size} onChange={(e) => setEditForm((p) => ({ ...p, party_size: e.target.value }))} className="rounded border px-2 py-1" />
+                    <span className="text-stone-500">Party size</span>
+                    <input value={editForm.party_size} onChange={(e) => setEditForm((p) => ({ ...p, party_size: e.target.value }))} className="rounded border border-stone-300 px-2 py-1" />
                   </label>
                   <label className="flex flex-col gap-1 sm:col-span-2">
-                    <span className="text-slate-500">Special request</span>
-                    <input value={editForm.special_request} onChange={(e) => setEditForm((p) => ({ ...p, special_request: e.target.value }))} className="rounded border px-2 py-1" />
+                    <span className="text-stone-500">Special request</span>
+                    <input value={editForm.special_request} onChange={(e) => setEditForm((p) => ({ ...p, special_request: e.target.value }))} className="rounded border border-stone-300 px-2 py-1" />
                   </label>
                   <div className="sm:col-span-2 flex gap-2">
-                    <button disabled={busyId === b.id} onClick={() => void saveEdit(b.id)} className="rounded border px-2 py-1">Save Edit</button>
-                    <button disabled={busyId === b.id} onClick={cancelEdit} className="rounded border px-2 py-1">Cancel</button>
+                    <button disabled={busyId === b.id} onClick={() => void saveEdit(b.id)} className="rounded border border-stone-300 bg-white px-2 py-1">Save Edit</button>
+                    <button disabled={busyId === b.id} onClick={cancelEdit} className="rounded border border-stone-300 bg-white px-2 py-1">Cancel</button>
                   </div>
                 </div>
         ) : null}
         <div className="mt-3 flex flex-wrap gap-2">
-          <button disabled={busyId === b.id} onClick={() => updateStatus(b.id, 'contacted')} className="rounded border px-2 py-1 text-xs">Mark Contacted</button>
-          <button disabled={busyId === b.id} onClick={() => updateStatus(b.id, 'completed')} className="rounded border px-2 py-1 text-xs">Mark Completed</button>
-          <button disabled={busyId === b.id} onClick={() => updateStatus(b.id, 'cancelled')} className="rounded border px-2 py-1 text-xs">Mark Cancelled</button>
-          <button disabled={busyId === b.id} onClick={() => startEdit(b)} className="rounded border px-2 py-1 text-xs">Edit Booking</button>
+          <button disabled={busyId === b.id} onClick={() => updateStatus(b.id, 'contacted')} className="rounded border border-stone-300 bg-white px-2 py-1 text-xs">Mark Contacted</button>
+          <button disabled={busyId === b.id} onClick={() => updateStatus(b.id, 'completed')} className="rounded border border-stone-300 bg-white px-2 py-1 text-xs">Mark Completed</button>
+          <button disabled={busyId === b.id} onClick={() => updateStatus(b.id, 'cancelled')} className="rounded border border-stone-300 bg-white px-2 py-1 text-xs">Mark Cancelled</button>
+          <button disabled={busyId === b.id} onClick={() => startEdit(b)} className="rounded border border-stone-300 bg-white px-2 py-1 text-xs">Edit Booking</button>
         </div>
       </div>
     </>

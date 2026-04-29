@@ -25,6 +25,24 @@ export default function ContactPage() {
         </a>
       </section>
 
+      <section className="mt-6 grid gap-4 md:grid-cols-3">
+        <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
+          <p className="text-xs uppercase tracking-wide text-stone-500">Step 1</p>
+          <p className="mt-1 text-sm font-medium text-stone-800">Share your business profile</p>
+          <p className="mt-1 text-sm text-stone-600">Cuisine, peak hours, average booking volume, and language needs.</p>
+        </div>
+        <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
+          <p className="text-xs uppercase tracking-wide text-stone-500">Step 2</p>
+          <p className="mt-1 text-sm font-medium text-stone-800">We configure your setup</p>
+          <p className="mt-1 text-sm text-stone-600">Assistant behavior, confirmation flow, and dashboard preferences.</p>
+        </div>
+        <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
+          <p className="text-xs uppercase tracking-wide text-stone-500">Step 3</p>
+          <p className="mt-1 text-sm font-medium text-stone-800">Go live with confidence</p>
+          <p className="mt-1 text-sm text-stone-600">Monitor reservations and keep service standards high from day one.</p>
+        </div>
+      </section>
+
       <div className="mt-6">
         <Link href="/signup" className="text-sm font-medium text-stone-700 hover:underline">
           Or create your account directly

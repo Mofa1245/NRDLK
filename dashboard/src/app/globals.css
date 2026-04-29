@@ -7,6 +7,10 @@
     color-scheme: light;
   }
 
+  * {
+    border-color: rgb(231 229 228);
+  }
+
   body::before {
     content: '';
     position: fixed;
@@ -16,5 +20,9 @@
       radial-gradient(48rem 30rem at 10% -10%, rgba(245, 158, 11, 0.12), transparent 60%),
       radial-gradient(48rem 30rem at 90% 0%, rgba(59, 130, 246, 0.1), transparent 60%);
     z-index: -1;
+  }
+
+  ::selection {
+    background: rgba(15, 23, 42, 0.15);
   }
 }
