@@ -126,17 +126,17 @@ export function DashboardClient({
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-stone-200 bg-white px-5 py-4 shadow-sm">
         <div>
           <h1 className="text-xl font-semibold text-stone-800">{business.name}</h1>
           <p className="text-sm text-stone-500">{userEmail}</p>
         </div>
-        <button onClick={signOut} className="text-sm text-stone-500 hover:underline">
+        <button onClick={signOut} className="rounded-md border border-stone-300 px-3 py-1.5 text-sm text-stone-600 hover:bg-stone-100">
           Sign out
         </button>
       </div>
 
-      <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+      <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <h2 className="text-sm font-medium text-stone-700">Quick access</h2>
         <p className="mt-1 text-xs text-stone-500">Open live bookings and manage confirmations.</p>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -159,7 +159,7 @@ export function DashboardClient({
         </div>
       </section>
 
-      <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+      <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <h2 className="text-sm font-medium text-stone-700">Usage Summary</h2>
         <p className="mt-1 text-sm text-stone-700">
           {business.usage_minutes} / {business.monthly_limit_minutes} minutes used this month
@@ -169,7 +169,7 @@ export function DashboardClient({
         </p>
       </section>
 
-      <section className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+      <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-base font-semibold text-stone-900">Operations Center</h2>
@@ -249,7 +249,7 @@ export function DashboardClient({
         {opMessage ? <p className="mt-3 text-xs text-stone-600">{opMessage}</p> : null}
       </section>
 
-      <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+      <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <h2 className="text-sm font-medium text-stone-700">Today&apos;s calls</h2>
         <p className="mt-1 text-xs text-stone-500">{todayCalls.length} calls today</p>
         <ul className="mt-3 space-y-2">

@@ -63,7 +63,7 @@ export default async function DashboardPage() {
     .limit(50);
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
+    <main className="mx-auto max-w-6xl px-4 py-8 md:py-10">
       <DashboardClient
         userEmail={user.email ?? ''}
         business={business}
