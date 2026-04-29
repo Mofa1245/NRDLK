@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 type Business = {
   id: string;
@@ -79,22 +79,6 @@ export function DashboardClient({
     router.refresh();
   }
 
-  async function patchBusiness(path: string, body: Record<string, unknown>) {
-    if (!business) return;
-    setOpMessage('');
-    const res = await fetch(`/api/backend/api/business/${business.id}/${path}`, {
-      method: path === 'reset-usage' ? 'POST' : 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }).catch(() => null);
-    if (!res || !res.ok) {
-      setOpMessage('Action failed. Check server and try again.');
-      return;
-    }
-    setOpMessage('Action applied.');
-    router.refresh();
-  }
-
   function downloadLogs() {
     const rows = [
       ['call_id', 'timestamp', 'confidence', 'flagged', 'high_priority', 'duration_seconds'].join(','),
@@ -123,6 +107,13 @@ export function DashboardClient({
   const serviceActive = business.status === 'active';
   const planLabel = business.plan === 'premium' ? 'Premium' : 'Basic';
   const usagePercent = Math.round((business.usage_minutes / Math.max(1, business.monthly_limit_minutes)) * 100);
+  const accountRef = useMemo(() => {
+    const seed = `${business.business_id}:${business.id}`;
+    let hash = 0;
+    for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+    const numeric = Math.abs(hash % 900000) + 100000;
+    return `QTR-${numeric}`;
+  }, [business.business_id, business.id]);
 
   return (
     <div className="space-y-8">
@@ -169,11 +160,29 @@ export function DashboardClient({
         </p>
       </section>
 
+      <section className="rounded-2xl border border-stone-200 bg-gradient-to-br from-white to-stone-50 p-5 shadow-sm">
+        <h2 className="text-sm font-medium text-stone-700">Business Account</h2>
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          <div className="rounded-lg border border-stone-200 bg-white p-3">
+            <p className="text-xs uppercase tracking-wide text-stone-500">Account Ref</p>
+            <p className="mt-1 font-semibold text-stone-900">{accountRef}</p>
+          </div>
+          <div className="rounded-lg border border-stone-200 bg-white p-3">
+            <p className="text-xs uppercase tracking-wide text-stone-500">Business ID</p>
+            <p className="mt-1 font-semibold text-stone-900">{business.business_id.slice(0, 8).toUpperCase()}</p>
+          </div>
+          <div className="rounded-lg border border-stone-200 bg-white p-3">
+            <p className="text-xs uppercase tracking-wide text-stone-500">Current Plan</p>
+            <p className="mt-1 font-semibold text-stone-900">{planLabel}</p>
+          </div>
+        </div>
+      </section>
+
       <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-base font-semibold text-stone-900">Operations Center</h2>
-            <p className="mt-1 text-sm text-stone-500">Control service status, AI behavior, and business policy.</p>
+            <p className="mt-1 text-sm text-stone-500">Set your operating window and assistant availability.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${serviceActive ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
@@ -184,7 +193,7 @@ export function DashboardClient({
           </div>
         </div>
 
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <div className="mt-4">
           <div className="rounded-lg border border-stone-200 p-4">
             <h3 className="text-sm font-medium text-stone-800">Reception Behavior</h3>
             <p className="mt-1 text-xs text-stone-500">Define operating window and whether AI answers new calls.</p>
@@ -214,35 +223,6 @@ export function DashboardClient({
             >
               {saving ? 'Saving changes...' : 'Save configuration'}
             </button>
-          </div>
-
-          <div className="rounded-lg border border-stone-200 p-4">
-            <h3 className="text-sm font-medium text-stone-800">Administrative Actions</h3>
-            <p className="mt-1 text-xs text-stone-500">Use these controls for service lifecycle, billing tier, and counters.</p>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button onClick={() => patchBusiness('status', { status: 'active' })} className="rounded-md border px-3 py-1.5 text-xs font-medium">
-                Activate service
-              </button>
-              <button onClick={() => patchBusiness('status', { status: 'paused' })} className="rounded-md border px-3 py-1.5 text-xs font-medium">
-                Pause service
-              </button>
-              <button onClick={() => patchBusiness('realtime-toggle', { enabled: !aiEnabled })} className="rounded-md border px-3 py-1.5 text-xs font-medium">
-                {aiEnabled ? 'Disable AI receptionist' : 'Enable AI receptionist'}
-              </button>
-            </div>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button onClick={() => patchBusiness('plan', { plan: 'basic' })} className="rounded-md border px-3 py-1.5 text-xs font-medium">
-                Switch to Basic
-              </button>
-              <button onClick={() => patchBusiness('plan', { plan: 'premium' })} className="rounded-md border px-3 py-1.5 text-xs font-medium">
-                Switch to Premium
-              </button>
-              <button onClick={() => patchBusiness('reset-usage', {})} className="rounded-md border px-3 py-1.5 text-xs font-medium">
-                Reset monthly usage
-              </button>
-            </div>
           </div>
         </div>
 

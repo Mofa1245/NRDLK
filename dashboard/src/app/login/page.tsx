@@ -27,12 +27,12 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto max-w-sm px-4 py-16">
-      <h1 className="text-xl font-semibold text-stone-800">Sign in</h1>
-      <p className="mt-1 text-sm text-stone-600">
-        Enter your email and password.
-      </p>
-      <form onSubmit={signInWithEmail} className="mt-6 flex flex-col gap-3">
+    <main className="mx-auto max-w-md px-4 py-14">
+      <section className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
+        <p className="text-xs font-medium uppercase tracking-[0.2em] text-stone-500">Welcome back</p>
+        <h1 className="mt-2 text-2xl font-semibold text-stone-900">Sign in to your dashboard</h1>
+        <p className="mt-1 text-sm text-stone-600">Use your business email and password.</p>
+        <form onSubmit={signInWithEmail} className="mt-6 flex flex-col gap-3">
         <input
           type="email"
           placeholder="you@business.com"
@@ -56,10 +56,11 @@ export default function LoginPage() {
         >
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
-      </form>
-      {message && <p className="mt-4 text-sm text-stone-600">{message}</p>}
-      <p className="mt-6">
-        <a href="/" className="text-stone-500 hover:underline">← Back</a>
+        </form>
+        {message && <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{message}</p>}
+      </section>
+      <p className="mt-5 text-center">
+        <a href="/" className="text-sm text-stone-600 hover:underline">← Back to website</a>
       </p>
     </main>
   );
