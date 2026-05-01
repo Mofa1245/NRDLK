@@ -18,6 +18,7 @@ COPY . .
 RUN npm run build
 
 ENV NODE_ENV=production
+ENV PATH="/opt/venv/bin:${PATH}"
 ENV PYTHON_PATH=/opt/venv/bin/python
 
 CMD ["npm", "start"]
