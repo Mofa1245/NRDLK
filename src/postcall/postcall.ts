@@ -43,15 +43,19 @@ export async function handlePostCall({
 
     if (escalate) {
       console.log('[HANDOFF]');
+      const businessTarget = process.env.BUSINESS_WHATSAPP_NUMBER;
+      const sameRecipient = isSameWhatsAppRecipient(businessTarget, from);
 
-      await sendWhatsApp(
-        formatBusinessNotification(lang, {
-          phone: from,
-          transcript,
-          structured
-        }),
-        process.env.BUSINESS_WHATSAPP_NUMBER
-      );
+      if (!sameRecipient) {
+        await sendWhatsApp(
+          formatBusinessNotification(lang, {
+            phone: from,
+            transcript,
+            structured
+          }),
+          businessTarget
+        );
+      }
 
       upsertConfirmationSession(from, lang, structured, businessId, callId, transcript);
       await sendWhatsApp(`${formatHandoffCustomerMessage(lang)}${formatConfirmationMenu(lang)}`, from);
@@ -123,6 +127,19 @@ async function logCall(data: {
   } catch (e) {
     console.error('[ERROR]', 'call_logs insert failed', e);
   }
+}
+
+function normalizePhoneForCompare(value?: string | null): string {
+  return String(value || '')
+    .replace(/^whatsapp:/i, '')
+    .replace(/[^\d+]/g, '')
+    .trim();
+}
+
+function isSameWhatsAppRecipient(a?: string | null, b?: string | null): boolean {
+  const left = normalizePhoneForCompare(a);
+  const right = normalizePhoneForCompare(b);
+  return !!left && !!right && left === right;
 }
 
 function resolveLanguage(transcript: string, structured: any): 'ar' | 'en' {
