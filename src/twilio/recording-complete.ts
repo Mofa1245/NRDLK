@@ -8,6 +8,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execFileSync, execSync, type ExecSyncOptions } from 'child_process';
+import OpenAI from 'openai';
 import { Router } from 'express';
 import { parseTranscript } from '../ai/parse.js';
 import { enrichStructuredFromTranscript } from '../ai/heuristic-booking.js';
@@ -100,6 +101,20 @@ function runLocalWhisperStrict(audioFilePath: string): string {
   return output.toString().trim();
 }
 
+async function transcribeWithOpenAI(wavPath: string): Promise<string> {
+  const key = process.env.OPENAI_API_KEY?.trim();
+  if (!key) {
+    throw new Error('OPENAI_API_KEY is required when TRANSCRIPTION_PROVIDER=openai');
+  }
+  const model = (process.env.OPENAI_TRANSCRIPTION_MODEL || 'whisper-1').trim() || 'whisper-1';
+  const openai = new OpenAI({ apiKey: key });
+  const transcription = await openai.audio.transcriptions.create({
+    file: fs.createReadStream(wavPath),
+    model,
+  });
+  return (transcription.text || '').trim();
+}
+
 async function transcribeAudio(audioBuffer: ArrayBuffer, callSid: string, recordingUrl: string) {
   const tempDir = path.join(process.cwd(), 'temp');
   fs.mkdirSync(tempDir, { recursive: true });
@@ -140,10 +155,18 @@ async function transcribeAudio(audioBuffer: ArrayBuffer, callSid: string, record
   }
 
   console.log('USING FILE:', outputPath);
-  console.log('[WHISPER] bilingual auto-detect (Arabic / English / mixed)');
 
-  const raw = runLocalWhisperStrict(outputPath);
-  console.log('[MANUAL TEST RESULT]', raw);
+  const provider = (process.env.TRANSCRIPTION_PROVIDER || 'local').trim().toLowerCase();
+  let raw: string;
+  if (provider === 'openai') {
+    console.log('[STT] OpenAI transcription', process.env.OPENAI_TRANSCRIPTION_MODEL || 'whisper-1');
+    raw = await transcribeWithOpenAI(outputPath);
+    console.log('[OPENAI STT RESULT]', raw.slice(0, 200));
+  } else {
+    console.log('[WHISPER] bilingual auto-detect (Arabic / English / mixed)');
+    raw = runLocalWhisperStrict(outputPath);
+    console.log('[MANUAL TEST RESULT]', raw);
+  }
 
   const trimmed = raw.trim();
   if (!trimmed) {
@@ -313,7 +336,9 @@ router.post('/recording-complete', async (req, res) => {
       msg.includes('STT FAILED') ||
       msg.includes('FFMPEG FAILED') ||
       msg.includes('COMMAND_FAILED') ||
-      msg.includes('ENOENT');
+      msg.includes('ENOENT') ||
+      msg.includes('OPENAI_API_KEY is required when TRANSCRIPTION_PROVIDER=openai') ||
+      (msg.includes('transcriptions') && msg.includes('OpenAI'));
     if (isSttFailure) {
       console.error('[STT FAIL LOUD]', msg);
       res.status(500).type('text').send(`STT pipeline failed: ${msg}`);

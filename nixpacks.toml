@@ -1,0 +1,3 @@
+# Fallback when building without Dockerfile (Railway / Nixpacks): ensure ffmpeg exists for Twilio STT prep.
+[phases.setup]
+aptPkgs = ["ffmpeg"]
