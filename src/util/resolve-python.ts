@@ -57,7 +57,7 @@ function commonWindowsPythonPaths(): string[] {
  */
 export function resolvePythonAndArgs(scriptPath: string, scriptArgs: string[]): PythonInvocation {
   const explicit = process.env.PYTHON_PATH?.trim();
-  if (explicit && exists(explicit)) {
+  if (explicit) {
     const base = path.basename(explicit).toLowerCase();
     if (base === 'py.exe' || base === 'py') {
       return { executable: explicit, args: ['-3', scriptPath, ...scriptArgs] };

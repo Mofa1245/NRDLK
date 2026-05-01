@@ -46,7 +46,16 @@ export async function handlePostCall({
       const businessTarget = process.env.BUSINESS_WHATSAPP_NUMBER;
       const sameRecipient = isSameWhatsAppRecipient(businessTarget, from);
 
-      if (!sameRecipient) {
+      if (sameRecipient) {
+        await sendWhatsApp(
+          `${formatBusinessNotification(lang, {
+            phone: from,
+            transcript,
+            structured
+          })}\n\n${formatHandoffCustomerMessage(lang)}${formatConfirmationMenu(lang)}`,
+          from
+        );
+      } else {
         await sendWhatsApp(
           formatBusinessNotification(lang, {
             phone: from,
@@ -55,10 +64,10 @@ export async function handlePostCall({
           }),
           businessTarget
         );
+        await sendWhatsApp(`${formatHandoffCustomerMessage(lang)}${formatConfirmationMenu(lang)}`, from);
       }
 
       upsertConfirmationSession(from, lang, structured, businessId, callId, transcript);
-      await sendWhatsApp(`${formatHandoffCustomerMessage(lang)}${formatConfirmationMenu(lang)}`, from);
       await alertHighHandoffRate(businessId, 1);
 
       const outcome: 'handoff' | 'success' = 'handoff';
