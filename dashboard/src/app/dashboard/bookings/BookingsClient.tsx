@@ -54,6 +54,7 @@ export function BookingsClient({
   const [refreshing, setRefreshing] = useState(false);
   const [secondsSinceUpdate, setSecondsSinceUpdate] = useState(0);
   const [pollFailures, setPollFailures] = useState(0);
+  const [lastPollError, setLastPollError] = useState('');
   const [flashNewUntil, setFlashNewUntil] = useState<Record<string, number>>({});
   /** Source of truth for "last synced" — avoids stale closures if poll succeeds sporadically */
   const lastSyncRef = useRef<number>(Date.now());
@@ -88,14 +89,26 @@ export function BookingsClient({
         const res = await fetch(`/api/backend/api/bookings?business_id=${encodeURIComponent(businessIdText)}`, {
           cache: 'no-store',
         });
-        if (!res.ok) throw new Error(`poll failed ${res.status}`);
-        const json = (await res.json()) as { bookings?: Booking[] };
+        const text = await res.text();
+        let json: { bookings?: Booking[]; ok?: boolean; error?: string };
+        try {
+          json = JSON.parse(text) as typeof json;
+        } catch {
+          setLastPollError(`Bad response (${res.status}): ${text.slice(0, 160)}`);
+          throw new Error('not json');
+        }
+        if (!res.ok) {
+          const hint = json.error || text.slice(0, 220);
+          setLastPollError(`${res.status}: ${hint}`);
+          throw new Error(`poll failed ${res.status}`);
+        }
         const nextBookings = json.bookings || [];
         if (cancelled) return;
         const nowTs = Date.now();
         lastSyncRef.current = nowTs;
         setSecondsSinceUpdate(0);
         setPollFailures(0);
+        setLastPollError('');
         setBookings((prev) => {
           const existing = new Set(prev.map((b) => b.id));
           const newIds = nextBookings.filter((b) => !existing.has(b.id)).map((b) => b.id);
@@ -246,7 +259,8 @@ export function BookingsClient({
           <p className="mt-1 text-sm text-stone-500">
             Last synced: {secondsSinceUpdate}s ago
             {refreshing ? ' • Refreshing…' : ''}
-            {pollFailures > 0 ? ` • Sync issues (${pollFailures}) — check NEXT_PUBLIC_API_URL on Vercel` : ''}
+            {pollFailures > 0 ? ` • Sync failed (${pollFailures})` : ''}
+            {lastPollError ? ` — ${lastPollError}` : ''}
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-xs">
