@@ -89,14 +89,32 @@ function childEnvWithFfmpegPath(): NodeJS.ProcessEnv {
   return env;
 }
 
-function runLocalWhisperStrict(audioFilePath: string): string {
+/**
+ * Map `businesses.plan` to a Whisper checkpoint (see `.env.example`).
+ * Entry tiers can use `small` for English-only; premium / Arabic-capable tiers use larger models.
+ */
+function resolveWhisperModelForPlan(plan: string): string | undefined {
+  const p = (plan || 'basic').toLowerCase();
+  const tierSpecific =
+    p === 'premium'
+      ? process.env.WHISPER_MODEL_PREMIUM?.trim()
+      : process.env.WHISPER_MODEL_BASIC?.trim();
+  if (tierSpecific) return tierSpecific;
+  return process.env.WHISPER_MODEL?.trim() || undefined;
+}
+
+function runLocalWhisperStrict(audioFilePath: string, whisperModel?: string): string {
   const scriptPath = path.join(process.cwd(), 'scripts', 'transcribe.py');
   const { executable, args } = resolvePythonAndArgs(scriptPath, [audioFilePath]);
+  const env = childEnvWithFfmpegPath();
+  if (whisperModel) {
+    env.WHISPER_MODEL = whisperModel;
+  }
   const output = execFileSync(executable, args, {
     encoding: 'utf8',
     maxBuffer: 50 * 1024 * 1024,
     windowsHide: true,
-    env: childEnvWithFfmpegPath(),
+    env,
   });
   return output.toString().trim();
 }
@@ -115,7 +133,12 @@ async function transcribeWithOpenAI(wavPath: string): Promise<string> {
   return (transcription.text || '').trim();
 }
 
-async function transcribeAudio(audioBuffer: ArrayBuffer, callSid: string, recordingUrl: string) {
+async function transcribeAudio(
+  audioBuffer: ArrayBuffer,
+  callSid: string,
+  recordingUrl: string,
+  opts?: { whisperModel?: string },
+) {
   const tempDir = path.join(process.cwd(), 'temp');
   fs.mkdirSync(tempDir, { recursive: true });
   const safeId = (callSid || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -163,8 +186,11 @@ async function transcribeAudio(audioBuffer: ArrayBuffer, callSid: string, record
     raw = await transcribeWithOpenAI(outputPath);
     console.log('[OPENAI STT RESULT]', raw.slice(0, 200));
   } else {
-    console.log('[WHISPER] bilingual auto-detect (Arabic / English / mixed)');
-    raw = runLocalWhisperStrict(outputPath);
+    const wm = opts?.whisperModel;
+    const label =
+      wm ?? process.env.WHISPER_MODEL?.trim() || '(default in scripts/transcribe.py)';
+    console.log('[WHISPER] local', label);
+    raw = runLocalWhisperStrict(outputPath, wm);
     console.log('[MANUAL TEST RESULT]', raw);
   }
 
@@ -252,7 +278,10 @@ router.post('/recording-complete', async (req, res) => {
 
   try {
     const audioBuffer = await fetchRecordingBuffer(recordingUrl);
-    realTranscript = await transcribeAudio(audioBuffer, callSid, recordingUrl);
+    const whisperModel = resolveWhisperModelForPlan(business.plan);
+    realTranscript = await transcribeAudio(audioBuffer, callSid, recordingUrl, {
+      whisperModel,
+    });
     console.log('[RAW TRANSCRIPT]', realTranscript);
     structured = await parseTranscript(realTranscript, selectedLang === 'en' || selectedLang === 'ar' ? selectedLang : undefined);
     structured = enrichStructuredFromTranscript(realTranscript, structured as Record<string, unknown>) as typeof structured;

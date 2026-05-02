@@ -1,5 +1,15 @@
 import os
 import sys
+
+# Apply before numpy/torch import — lowers RAM spikes in constrained containers (e.g. Railway).
+for _k, _v in (
+    ("OMP_NUM_THREADS", "1"),
+    ("MKL_NUM_THREADS", "1"),
+    ("OPENBLAS_NUM_THREADS", "1"),
+    ("NUMEXPR_MAX_THREADS", "1"),
+):
+    os.environ.setdefault(_k, _v)
+
 sys.stdout.reconfigure(encoding='utf-8')
 
 import whisper
