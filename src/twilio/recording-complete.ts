@@ -188,7 +188,7 @@ async function transcribeAudio(
   } else {
     const wm = opts?.whisperModel;
     const label =
-      wm ?? process.env.WHISPER_MODEL?.trim() || '(default in scripts/transcribe.py)';
+      wm ?? (process.env.WHISPER_MODEL?.trim() || '(default in scripts/transcribe.py)');
     console.log('[WHISPER] local', label);
     raw = runLocalWhisperStrict(outputPath, wm);
     console.log('[MANUAL TEST RESULT]', raw);
