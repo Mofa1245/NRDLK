@@ -107,16 +107,42 @@ function runLocalWhisperStrict(audioFilePath: string, whisperModel?: string): st
   const scriptPath = path.join(process.cwd(), 'scripts', 'transcribe.py');
   const { executable, args } = resolvePythonAndArgs(scriptPath, [audioFilePath]);
   const env = childEnvWithFfmpegPath();
+  env.PYTHONUNBUFFERED = '1';
   if (whisperModel) {
     env.WHISPER_MODEL = whisperModel;
   }
-  const output = execFileSync(executable, args, {
-    encoding: 'utf8',
-    maxBuffer: 50 * 1024 * 1024,
-    windowsHide: true,
-    env,
-  });
-  return output.toString().trim();
+  try {
+    const output = execFileSync(executable, args, {
+      encoding: 'utf8',
+      maxBuffer: 50 * 1024 * 1024,
+      windowsHide: true,
+      env,
+    });
+    return output.toString().trim();
+  } catch (err: unknown) {
+    const x = err as {
+      status?: number | null;
+      signal?: NodeJS.Signals | null;
+      stderr?: string | Buffer;
+      stdout?: string | Buffer;
+    };
+    const stderr = x.stderr != null ? String(x.stderr) : '';
+    const stdout = x.stdout != null ? String(x.stdout) : '';
+    console.error('[WHISPER EXEC FAILED]', {
+      status: x.status,
+      signal: x.signal,
+      stderrTail: stderr.slice(-6000),
+      stdoutHead: stdout.slice(0, 800),
+    });
+    if (x.signal === 'SIGKILL') {
+      console.error(
+        '[WHISPER] SIGKILL usually means the container ran out of RAM while loading/running the model. ' +
+          'Try a smaller model (e.g. tiny / base / small.en), raise Railway memory, or use TRANSCRIPTION_PROVIDER=openai.',
+      );
+    }
+    const hint = stderr.trim() || stdout.trim() || x.signal || String(x.status ?? err);
+    throw new Error(`WHISPER_FAILED — ${hint}`);
+  }
 }
 
 async function transcribeWithOpenAI(wavPath: string): Promise<string> {
@@ -364,6 +390,7 @@ router.post('/recording-complete', async (req, res) => {
     const isSttFailure =
       msg.includes('STT FAILED') ||
       msg.includes('FFMPEG FAILED') ||
+      msg.includes('WHISPER_FAILED') ||
       msg.includes('COMMAND_FAILED') ||
       msg.includes('ENOENT') ||
       msg.includes('OPENAI_API_KEY is required when TRANSCRIPTION_PROVIDER=openai') ||
