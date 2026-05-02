@@ -1,6 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+
+/** Calendar date in the user's timezone (YYYY-MM-DD). Do not use toISOString() for "today" filters. */
+function localDateISO(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 type Booking = {
   id: string;
@@ -31,7 +39,7 @@ export function BookingsClient({
   businessIdText: string;
 }) {
   const [bookings, setBookings] = useState<Booking[]>(initialBookings);
-  const [windowFilter, setWindowFilter] = useState<'today' | 'upcoming' | 'all'>('today');
+  const [windowFilter, setWindowFilter] = useState<'today' | 'upcoming' | 'all'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'time'>('newest');
   const [queue, setQueue] = useState<'needs_action' | 'in_progress' | 'closed'>('needs_action');
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -44,13 +52,15 @@ export function BookingsClient({
   });
   const [inlineError, setInlineError] = useState<string>('');
   const [refreshing, setRefreshing] = useState(false);
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<number>(Date.now());
   const [secondsSinceUpdate, setSecondsSinceUpdate] = useState(0);
+  const [pollFailures, setPollFailures] = useState(0);
   const [flashNewUntil, setFlashNewUntil] = useState<Record<string, number>>({});
+  /** Source of truth for "last synced" — avoids stale closures if poll succeeds sporadically */
+  const lastSyncRef = useRef<number>(Date.now());
 
   useEffect(() => {
     const secTimer = setInterval(() => {
-      setSecondsSinceUpdate(Math.max(0, Math.floor((Date.now() - lastUpdatedAt) / 1000)));
+      setSecondsSinceUpdate(Math.floor((Date.now() - lastSyncRef.current) / 1000));
       setFlashNewUntil((prev) => {
         const next: Record<string, number> = {};
         const now = Date.now();
@@ -61,11 +71,12 @@ export function BookingsClient({
       });
     }, 1000);
     return () => clearInterval(secTimer);
-  }, [lastUpdatedAt]);
+  }, []);
 
   useEffect(() => {
     setBookings(initialBookings);
-    setLastUpdatedAt(Date.now());
+    lastSyncRef.current = Date.now();
+    setSecondsSinceUpdate(0);
   }, [initialBookings]);
 
   useEffect(() => {
@@ -77,11 +88,14 @@ export function BookingsClient({
         const res = await fetch(`/api/backend/api/bookings?business_id=${encodeURIComponent(businessIdText)}`, {
           cache: 'no-store',
         });
-        if (!res.ok) throw new Error('poll failed');
+        if (!res.ok) throw new Error(`poll failed ${res.status}`);
         const json = (await res.json()) as { bookings?: Booking[] };
         const nextBookings = json.bookings || [];
         if (cancelled) return;
         const nowTs = Date.now();
+        lastSyncRef.current = nowTs;
+        setSecondsSinceUpdate(0);
+        setPollFailures(0);
         setBookings((prev) => {
           const existing = new Set(prev.map((b) => b.id));
           const newIds = nextBookings.filter((b) => !existing.has(b.id)).map((b) => b.id);
@@ -94,15 +108,13 @@ export function BookingsClient({
           }
           return nextBookings;
         });
-        setLastUpdatedAt(nowTs);
-        setSecondsSinceUpdate(0);
       } catch {
-        // Background polling can fail transiently (cold start/network hiccup).
-        // Keep current data without showing a misleading update error.
+        setPollFailures((n) => n + 1);
       } finally {
         if (!cancelled) setRefreshing(false);
       }
     };
+    void poll();
     const timer = setInterval(() => {
       void poll();
     }, 10000);
@@ -123,18 +135,24 @@ export function BookingsClient({
 
   function dateLabel(dateValue: string | null) {
     if (!dateValue) return '—';
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateISO(new Date());
     if (dateValue === today) return 'Today';
     return dateValue;
   }
 
   const visible = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateISO(new Date());
     let items = bookings.filter((b) => {
       if (windowFilter === 'all') return true;
+      const createdDay = b.created_at ? localDateISO(new Date(b.created_at)) : null;
+      if (windowFilter === 'today') {
+        if (b.booking_date === today) return true;
+        if (!b.booking_date && createdDay === today) return true;
+        return false;
+      }
       if (!b.booking_date) return false;
-      if (windowFilter === 'today') return b.booking_date === today;
-      return b.booking_date > today;
+      if (windowFilter === 'upcoming') return b.booking_date > today;
+      return false;
     });
     if (sortBy === 'newest') {
       items = [...items].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
@@ -154,6 +172,8 @@ export function BookingsClient({
         body: JSON.stringify({ status }),
       });
       if (!res.ok) throw new Error('Status update failed');
+      lastSyncRef.current = Date.now();
+      setSecondsSinceUpdate(0);
       setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
     } catch {
       setInlineError('Could not update booking');
@@ -189,7 +209,11 @@ export function BookingsClient({
       if (!res.ok) throw new Error('Edit failed');
       const json = (await res.json()) as { booking?: Booking };
       const updated = json.booking;
-      if (updated) setBookings((prev) => prev.map((b) => (b.id === id ? (updated as Booking) : b)));
+      if (updated) {
+        lastSyncRef.current = Date.now();
+        setSecondsSinceUpdate(0);
+        setBookings((prev) => prev.map((b) => (b.id === id ? (updated as Booking) : b)));
+      }
       setEditingId(null);
     } catch {
       setInlineError('Could not update booking');
@@ -220,7 +244,9 @@ export function BookingsClient({
           <p className="text-xs uppercase tracking-[0.2em] text-stone-500">Operations Queue</p>
           <h1 className="text-2xl font-semibold text-stone-900">Bookings</h1>
           <p className="mt-1 text-sm text-stone-500">
-            Last updated: {secondsSinceUpdate}s ago {refreshing ? '• Refreshing…' : ''}
+            Last synced: {secondsSinceUpdate}s ago
+            {refreshing ? ' • Refreshing…' : ''}
+            {pollFailures > 0 ? ` • Sync issues (${pollFailures}) — check NEXT_PUBLIC_API_URL on Vercel` : ''}
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-xs">

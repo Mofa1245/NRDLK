@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_BASE =
+const BACKEND_BASE = (
   process.env.NEXT_PUBLIC_API_URL?.trim() ||
   process.env.NEXT_PUBLIC_BACKEND_URL?.trim() ||
-  'http://localhost:3000';
+  'http://localhost:3000'
+).replace(/\/+$/, '');
 
 async function forward(req: NextRequest, method: 'GET' | 'POST' | 'PATCH') {
   const parts = req.nextUrl.pathname.split('/').slice(3); // /api/backend/*
