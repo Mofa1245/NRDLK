@@ -242,8 +242,9 @@ function formatConfirmationMenu(lang: 'ar' | 'en') {
 4) إضافة طلب خاص
 5) تحويل لموظف
 6) تعديل التاريخ
+7) إلغاء الطلب
 
-ملاحظة: يمكنك التعديل حتى 3 مرات خلال 10 دقائق، وبعدها يتم تثبيت الطلب تلقائياً.`;
+ملاحظة: يمكنك التعديل حتى 3 مرات خلال 10 دقائق، وبعدها يتم تثبيت الطلب تلقائياً. يبقى بإمكانك 1/5/7 بعد القفل.`;
   }
   return `\n\nReply with:
 1) Confirm booking
@@ -252,8 +253,9 @@ function formatConfirmationMenu(lang: 'ar' | 'en') {
 4) Add special request
 5) Human support
 6) Change date
+7) Cancel request
 
-Note: You can edit up to 3 times within 10 minutes, then the request is auto-locked.`;
+Note: You can edit up to 3 times within 10 minutes, then the request is auto-locked. You can still confirm (1), get support (5), or cancel (7) after that.`;
 }
 
 function upsertConfirmationSession(

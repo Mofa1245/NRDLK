@@ -5,11 +5,6 @@ import { isRateLimited } from '../security/rate-limit.js';
 import { trackErrorAlert } from '../alerts/alerts.js';
 import { getSupabase } from '../db/supabase.js';
 
-function toLang(session: any): 'ar' | 'en' {
-  const lang = session?.state?.confirmation?.lang;
-  return lang === 'en' ? 'en' : 'ar';
-}
-
 function summaryMessage(lang: 'ar' | 'en', data: any) {
   const date = data?.date || (lang === 'ar' ? new Date().toLocaleDateString('ar-QA') : new Date().toLocaleDateString('en-GB'));
   const time = data?.time ?? '—';
@@ -40,6 +35,7 @@ function actionMenu(lang: 'ar' | 'en') {
 4) إضافة طلب خاص
 5) تحويل لموظف
 6) تعديل التاريخ
+7) إلغاء الطلب
 
 رد بـ 1 لتأكيد الحجز أو اختر خياراً للتعديل.
 
@@ -52,10 +48,42 @@ function actionMenu(lang: 'ar' | 'en') {
 4) Add special request
 5) Human support
 6) Change date
+7) Cancel request
 
 Reply 1 to confirm, or choose an option to edit.
 
 You can edit up to 3 times within 10 minutes.`;
+}
+
+function postLockMenu(lang: 'ar' | 'en') {
+  if (lang === 'ar') {
+    return `\n\nبعد انتهاء مهلة التعديل يمكنك فقط:
+1) تأكيد الحجز
+5) تحويل لموظف
+7) إلغاء الطلب
+
+التعديل على الوقت / العدد / التاريخ غير متاح الآن.`;
+  }
+  return `\n\nAfter the edit window you can still:
+1) Confirm booking
+5) Human support
+7) Cancel request
+
+Edits to time, party size, or date are closed.`;
+}
+
+function lockedIntroMessage(lang: 'ar' | 'en') {
+  return lang === 'ar'
+    ? 'انتهت مهلة التعديل (10 دقائق) وتم تثبيت آخر نسخة من الطلب ✅'
+    : 'The 10-minute edit window has ended. Your latest version is now locked ✅';
+}
+
+function isConfirmToken(normalized: string): boolean {
+  return ['1', 'yes', 'y', 'نعم', 'تأكيد', 'confirm'].includes(normalized);
+}
+
+function isCancelToken(normalized: string): boolean {
+  return normalized === '7' || normalized === 'cancel' || normalized === 'إلغاء';
 }
 
 function normalizeIncoming(text: string): string {
@@ -210,22 +238,129 @@ export async function handleWhatsappMessage(from: string, message: string, busin
     const session = getSession(sessionId);
     const confirmation = (session.state as any)?.confirmation;
     if (confirmation?.active) {
-      const lang = toLang(session);
       const normalized = normalizeIncoming(message);
-      const data = { ...(confirmation.data || {}) };
-      const pending = confirmation.pending_field as null | 'time' | 'people' | 'special_request' | 'date';
       const now = Date.now();
-      const expiresAt = Number(confirmation.expires_at || 0);
-      const maxChanges = Number(confirmation.max_changes || 3);
-      const changesCount = Number(confirmation.changes_count || 0);
+      let conf = { ...confirmation };
+      const lang: 'ar' | 'en' = conf.lang === 'en' ? 'en' : 'ar';
+      const data = { ...(conf.data || {}) };
+      let pending = conf.pending_field as null | 'time' | 'people' | 'special_request' | 'date';
+      const expiresAt = Number(conf.expires_at || 0);
+      const maxChanges = Number(conf.max_changes || 3);
+      const changesCount = Number(conf.changes_count || 0);
 
-      if (Number.isFinite(expiresAt) && expiresAt > 0 && now > expiresAt) {
-        const lockedMsg =
+      const expired = Number.isFinite(expiresAt) && expiresAt > 0 && now > expiresAt;
+      const wasUnlockedExpired = expired && !conf.locked;
+
+      if (expired && !conf.locked) {
+        conf = { ...conf, locked: true, pending_field: null };
+        pending = null;
+        updateSession(sessionId, {
+          state: { ...session.state, confirmation: conf },
+        });
+      }
+
+      const postLock = Boolean(conf.locked);
+
+      const confirmFlow = async () => {
+        if (data.number_of_people == null || String(data.time || '').trim() === '') {
+          await sendWhatsApp(
+            lang === 'ar'
+              ? `لا يمكن تثبيت الطلب قبل استكمال البيانات الأساسية.\n\n${summaryMessage(lang, data)}${postLock ? postLockMenu(lang) : actionMenu(lang)}`
+              : `Cannot finalize yet. Please complete required fields first.\n\n${summaryMessage(lang, data)}${postLock ? postLockMenu(lang) : actionMenu(lang)}`,
+            sessionId,
+          );
+          return;
+        }
+        const date = String(data.date || '').trim() || new Date().toISOString().slice(0, 10);
+        await createConfirmedBooking({
+          business_id: String(conf.business_id || ''),
+          call_id: String(conf.call_id || '') || null,
+          customer_phone: sessionId,
+          booking_date: date,
+          booking_time: String(data.time || '').trim() || null,
+          party_size: Number(data.number_of_people ?? null),
+          special_request: String(data.special_request || '').trim() || null,
+          language: lang,
+          corrected_by_customer: changesCount > 0,
+          details_text: String(data.details_text || '').trim() || null,
+        });
+        await sendBusinessBookingNotice({
+          business_id: String(conf.business_id || ''),
+          customer_phone: sessionId,
+          booking_date: date,
+          party_size: Number(data.number_of_people ?? null),
+          booking_time: String(data.time || '').trim() || null,
+          special_request: String(data.special_request || '').trim() || null,
+        });
+        const finalMsg =
           lang === 'ar'
-            ? `انتهت مهلة التعديل (10 دقائق) وتم تثبيت آخر نسخة من الطلب ✅\n\n${summaryMessage(lang, data)}`
-            : `The 10-minute edit window has ended. Your latest version is now locked ✅\n\n${summaryMessage(lang, data)}`;
-        await sendWhatsApp(lockedMsg, sessionId);
+            ? `تم تأكيد حجزك ✅\nسيتواصل معك المطعم عند الحاجة.`
+            : `Your booking is confirmed ✅\nThe restaurant will contact you if needed.`;
+        await sendWhatsApp(finalMsg, sessionId);
         clearSession(sessionId);
+      };
+
+      const handoffFlow = async () => {
+        const date = String(data.date || '').trim() || new Date().toISOString().slice(0, 10);
+        await createConfirmedBooking({
+          business_id: String(conf.business_id || ''),
+          call_id: String(conf.call_id || '') || null,
+          customer_phone: sessionId,
+          booking_date: date,
+          booking_time: String(data.time || '').trim() || null,
+          party_size: Number(data.number_of_people ?? null),
+          special_request:
+            String(data.special_request || '').trim() ||
+            (lang === 'ar' ? 'طلب دعم بشري عاجل' : 'Urgent human support requested'),
+          language: lang,
+          corrected_by_customer: changesCount > 0,
+          details_text: String(data.details_text || '').trim() || null,
+          status: 'handoff',
+        });
+        await sendWhatsApp(lang === 'ar' ? 'تم تحويل طلبك لموظف، وسيتواصل معك قريباً.' : 'Your request was handed to a staff member. They will contact you shortly.', sessionId);
+        clearSession(sessionId);
+      };
+
+      const cancelFlow = async () => {
+        await sendWhatsApp(
+          lang === 'ar'
+            ? 'تم إلغاء طلب الحجز. يمكنك الاتصال مجدداً في أي وقت لبدء طلب جديد.'
+            : 'Your booking request was cancelled. Call again anytime to start a new request.',
+          sessionId,
+        );
+        clearSession(sessionId);
+      };
+
+      if (postLock) {
+        if (isConfirmToken(normalized)) {
+          await confirmFlow();
+          return;
+        }
+        if (normalized === '5') {
+          await handoffFlow();
+          return;
+        }
+        if (isCancelToken(normalized)) {
+          await cancelFlow();
+          return;
+        }
+        if (['2', '3', '4', '6'].includes(normalized)) {
+          await sendWhatsApp(
+            lang === 'ar'
+              ? 'التعديل غير متاح بعد انتهاء المهلة. رد برقم 1 للتأكيد أو 5 لموظف أو 7 للإلغاء.'
+              : 'Edits are closed after the window ended. Reply 1 to confirm, 5 for support, or 7 to cancel.',
+            sessionId,
+          );
+          await sendWhatsApp(`${summaryMessage(lang, data)}${postLockMenu(lang)}`, sessionId);
+          return;
+        }
+        const showIntro =
+          wasUnlockedExpired &&
+          !isConfirmToken(normalized) &&
+          normalized !== '5' &&
+          !isCancelToken(normalized);
+        const intro = showIntro ? `${lockedIntroMessage(lang)}\n\n` : '';
+        await sendWhatsApp(`${intro}${summaryMessage(lang, data)}${postLockMenu(lang)}`, sessionId);
         return;
       }
 
@@ -240,7 +375,7 @@ export async function handleWhatsappMessage(from: string, message: string, busin
           updateSession(sessionId, {
             state: {
               ...session.state,
-              confirmation: { ...confirmation, pending_field: null },
+              confirmation: { ...conf, pending_field: null },
             },
           });
           return;
@@ -250,7 +385,7 @@ export async function handleWhatsappMessage(from: string, message: string, busin
           state: {
             ...session.state,
             confirmation: {
-              ...confirmation,
+              ...conf,
               data,
               pending_field: null,
               changes_count: changesCount + 1,
@@ -271,7 +406,7 @@ export async function handleWhatsappMessage(from: string, message: string, busin
           updateSession(sessionId, {
             state: {
               ...session.state,
-              confirmation: { ...confirmation, pending_field: null },
+              confirmation: { ...conf, pending_field: null },
             },
           });
           return;
@@ -286,7 +421,7 @@ export async function handleWhatsappMessage(from: string, message: string, busin
           state: {
             ...session.state,
             confirmation: {
-              ...confirmation,
+              ...conf,
               data,
               pending_field: null,
               changes_count: changesCount + 1,
@@ -307,7 +442,7 @@ export async function handleWhatsappMessage(from: string, message: string, busin
           updateSession(sessionId, {
             state: {
               ...session.state,
-              confirmation: { ...confirmation, pending_field: null },
+              confirmation: { ...conf, pending_field: null },
             },
           });
           return;
@@ -317,7 +452,7 @@ export async function handleWhatsappMessage(from: string, message: string, busin
           state: {
             ...session.state,
             confirmation: {
-              ...confirmation,
+              ...conf,
               data,
               pending_field: null,
               changes_count: changesCount + 1,
@@ -338,7 +473,7 @@ export async function handleWhatsappMessage(from: string, message: string, busin
           updateSession(sessionId, {
             state: {
               ...session.state,
-              confirmation: { ...confirmation, pending_field: null },
+              confirmation: { ...conf, pending_field: null },
             },
           });
           return;
@@ -358,7 +493,7 @@ export async function handleWhatsappMessage(from: string, message: string, busin
           state: {
             ...session.state,
             confirmation: {
-              ...confirmation,
+              ...conf,
               data,
               pending_field: null,
               changes_count: changesCount + 1,
@@ -369,43 +504,8 @@ export async function handleWhatsappMessage(from: string, message: string, busin
         return;
       }
 
-      if (['1', 'yes', 'y', 'نعم', 'تأكيد', 'confirm'].includes(normalized)) {
-        if (data.number_of_people == null || String(data.time || '').trim() === '') {
-          await sendWhatsApp(
-            lang === 'ar'
-              ? `لا يمكن تثبيت الطلب قبل استكمال البيانات الأساسية.\n\n${summaryMessage(lang, data)}${actionMenu(lang)}`
-              : `Cannot finalize yet. Please complete required fields first.\n\n${summaryMessage(lang, data)}${actionMenu(lang)}`,
-            sessionId,
-          );
-          return;
-        }
-        const date = String(data.date || '').trim() || new Date().toISOString().slice(0, 10);
-        await createConfirmedBooking({
-          business_id: String(confirmation.business_id || ''),
-          call_id: String(confirmation.call_id || '') || null,
-          customer_phone: sessionId,
-          booking_date: date,
-          booking_time: String(data.time || '').trim() || null,
-          party_size: Number(data.number_of_people ?? null),
-          special_request: String(data.special_request || '').trim() || null,
-          language: lang,
-          corrected_by_customer: changesCount > 0,
-          details_text: String(data.details_text || '').trim() || null,
-        });
-        await sendBusinessBookingNotice({
-          business_id: String(confirmation.business_id || ''),
-          customer_phone: sessionId,
-          booking_date: date,
-          party_size: Number(data.number_of_people ?? null),
-          booking_time: String(data.time || '').trim() || null,
-          special_request: String(data.special_request || '').trim() || null,
-        });
-        const finalMsg =
-          lang === 'ar'
-            ? `تم تأكيد حجزك ✅\nسيتواصل معك المطعم عند الحاجة.`
-            : `Your booking is confirmed ✅\nThe restaurant will contact you if needed.`;
-        await sendWhatsApp(finalMsg, sessionId);
-        clearSession(sessionId);
+      if (isConfirmToken(normalized)) {
+        await confirmFlow();
         return;
       }
       if (normalized === '2') {
@@ -418,7 +518,7 @@ export async function handleWhatsappMessage(from: string, message: string, busin
           );
           return;
         }
-        updateSession(sessionId, { state: { ...session.state, confirmation: { ...confirmation, pending_field: 'time' } } });
+        updateSession(sessionId, { state: { ...session.state, confirmation: { ...conf, pending_field: 'time' } } });
         await sendWhatsApp(lang === 'ar' ? 'أرسل الوقت المطلوب بصيغة واضحة (مثال: 7:45pm).' : 'Send the preferred time clearly (e.g. 7:45pm).', sessionId);
         return;
       }
@@ -432,7 +532,7 @@ export async function handleWhatsappMessage(from: string, message: string, busin
           );
           return;
         }
-        updateSession(sessionId, { state: { ...session.state, confirmation: { ...confirmation, pending_field: 'people' } } });
+        updateSession(sessionId, { state: { ...session.state, confirmation: { ...conf, pending_field: 'people' } } });
         await sendWhatsApp(lang === 'ar' ? 'أرسل عدد الأشخاص كرقم (مثال: 4).' : 'Send party size as a number (e.g. 4).', sessionId);
         return;
       }
@@ -446,29 +546,12 @@ export async function handleWhatsappMessage(from: string, message: string, busin
           );
           return;
         }
-        updateSession(sessionId, { state: { ...session.state, confirmation: { ...confirmation, pending_field: 'special_request' } } });
+        updateSession(sessionId, { state: { ...session.state, confirmation: { ...conf, pending_field: 'special_request' } } });
         await sendWhatsApp(lang === 'ar' ? 'اكتب طلبك الخاص كما تريد (خارجي/داخلي/غرفة خاصة/أي ملاحظة).' : 'Type your special request exactly as you want (outdoor/indoor/private room/notes).', sessionId);
         return;
       }
       if (normalized === '5') {
-        const date = String(data.date || '').trim() || new Date().toISOString().slice(0, 10);
-        await createConfirmedBooking({
-          business_id: String(confirmation.business_id || ''),
-          call_id: String(confirmation.call_id || '') || null,
-          customer_phone: sessionId,
-          booking_date: date,
-          booking_time: String(data.time || '').trim() || null,
-          party_size: Number(data.number_of_people ?? null),
-          special_request:
-            String(data.special_request || '').trim() ||
-            (lang === 'ar' ? 'طلب دعم بشري عاجل' : 'Urgent human support requested'),
-          language: lang,
-          corrected_by_customer: changesCount > 0,
-          details_text: String(data.details_text || '').trim() || null,
-          status: 'handoff',
-        });
-        await sendWhatsApp(lang === 'ar' ? 'تم تحويل طلبك لموظف، وسيتواصل معك قريباً.' : 'Your request was handed to a staff member. They will contact you shortly.', sessionId);
-        clearSession(sessionId);
+        await handoffFlow();
         return;
       }
       if (normalized === '6') {
@@ -481,13 +564,18 @@ export async function handleWhatsappMessage(from: string, message: string, busin
           );
           return;
         }
-        updateSession(sessionId, { state: { ...session.state, confirmation: { ...confirmation, pending_field: 'date' } } });
+        updateSession(sessionId, { state: { ...session.state, confirmation: { ...conf, pending_field: 'date' } } });
         await sendWhatsApp(
           lang === 'ar'
             ? 'أرسل التاريخ المطلوب: اليوم، بكرة، أو YYYY-MM-DD.'
             : 'Send booking date: today, tomorrow, or YYYY-MM-DD.',
           sessionId,
         );
+        return;
+      }
+
+      if (isCancelToken(normalized)) {
+        await cancelFlow();
         return;
       }
 
