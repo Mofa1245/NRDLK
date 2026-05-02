@@ -2,7 +2,7 @@
  * Twilio recording-complete webhook: when recording ends, run pipeline.
  * POST /twilio/recording-complete
  *
- * Transcription: local Whisper via scripts/transcribe.py (requires Python + ffmpeg).
+ * Transcription: local STT via scripts/transcribe_faster.py (default) or scripts/transcribe.py (STT_LOCAL_ENGINE=whisper).
  */
 
 import fs from 'fs';
@@ -103,8 +103,17 @@ function resolveWhisperModelForPlan(plan: string): string | undefined {
   return process.env.WHISPER_MODEL?.trim() || undefined;
 }
 
+function localTranscribeScriptPath(): string {
+  const engine = (process.env.STT_LOCAL_ENGINE || 'whisper').trim().toLowerCase();
+  const name =
+    engine === 'whisper' || engine === 'openai' || engine === 'pytorch'
+      ? 'transcribe.py'
+      : 'transcribe_faster.py';
+  return path.join(process.cwd(), 'scripts', name);
+}
+
 function runLocalWhisperStrict(audioFilePath: string, whisperModel?: string): string {
-  const scriptPath = path.join(process.cwd(), 'scripts', 'transcribe.py');
+  const scriptPath = localTranscribeScriptPath();
   const { executable, args } = resolvePythonAndArgs(scriptPath, [audioFilePath]);
   const env = childEnvWithFfmpegPath();
   env.PYTHONUNBUFFERED = '1';
@@ -136,8 +145,9 @@ function runLocalWhisperStrict(audioFilePath: string, whisperModel?: string): st
     });
     if (x.signal === 'SIGKILL') {
       console.error(
-        '[WHISPER] SIGKILL usually means the container ran out of RAM while loading/running the model. ' +
-          'Try a smaller model (e.g. tiny / base / small.en), raise Railway memory, or use TRANSCRIPTION_PROVIDER=openai.',
+        '[WHISPER] SIGKILL usually means OOM loading/running the model. In Docker use faster-whisper ' +
+          '(STT_LOCAL_ENGINE=faster, default in Dockerfile) instead of PyTorch openai-whisper; ' +
+          'or use a smaller WHISPER_MODEL, raise Railway memory, or TRANSCRIPTION_PROVIDER=openai.',
       );
     }
     const hint = stderr.trim() || stdout.trim() || x.signal || String(x.status ?? err);
@@ -214,8 +224,9 @@ async function transcribeAudio(
   } else {
     const wm = opts?.whisperModel;
     const label =
-      wm ?? (process.env.WHISPER_MODEL?.trim() || '(default in scripts/transcribe.py)');
-    console.log('[WHISPER] local', label);
+      wm ?? (process.env.WHISPER_MODEL?.trim() || '(default in transcribe script)');
+    const eng = (process.env.STT_LOCAL_ENGINE || 'whisper').trim().toLowerCase();
+    console.log('[WHISPER] local', eng === 'whisper' || eng === 'openai' || eng === 'pytorch' ? 'openai-whisper' : 'faster-whisper', label);
     raw = runLocalWhisperStrict(outputPath, wm);
     console.log('[MANUAL TEST RESULT]', raw);
   }
@@ -397,7 +408,22 @@ router.post('/recording-complete', async (req, res) => {
       (msg.includes('transcriptions') && msg.includes('OpenAI'));
     if (isSttFailure) {
       console.error('[STT FAIL LOUD]', msg);
-      res.status(500).type('text').send(`STT pipeline failed: ${msg}`);
+      // Still notify via WhatsApp and return 200 so Twilio does not retry the webhook.
+      await handlePostCall({
+        callId: callSid,
+        businessId: business.business_id,
+        from,
+        transcript: realTranscript.trim() || 'Could not understand audio',
+        structured: {
+          intent: 'unknown',
+          _lang: selectedLang || undefined,
+          ...(realTranscript.trim() ? { raw: realTranscript } : {}),
+        },
+        confidence: realTranscript.trim() ? 0.35 : 0.2,
+        duration: duration || 60,
+        mode: 'fallback',
+      });
+      res.status(200).send('stt-failed-handled');
       return;
     }
     await handlePostCall({
